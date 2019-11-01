@@ -1,0 +1,1044 @@
+$$PRINT/OFF,IN           $$ USE FOR PRODUCTION
+$$ ****************************************************
+$$ *               GROB G550 5 AXIS MILL              *
+$$ *                   SIEMENS 840D                   *
+$$ ****************************************************
+
+PRINT/ON;DMY=POSTF(24,1);XX=POSTF(2,1,1917,1)        $$ USE FOR DEVELOPMENT
+
+$$ ****************************************************
+$$ *        DEVELOPMENT/MODIFICATION HISTORY          *
+$$ ****************************************************
+$$ Created  : 07-25-2017
+$$ Modified : 11-19-2018
+$$ Modified : 12-18-2018; Added support for the RAH
+$$ Modified : 01/18/2019
+$$ Modified : 03/25/2019; Added HSMSET section and other - CH
+$$ Modified : 04/02/2019; Changed GOTO section and other - FN
+$$ Modified : 04/03/2019; Added FIXOF in GOTO section after TRAORI/ON - CH
+$$ Modified : 04/10/2019; Added MODE TO CLAMP section, NEGY is POSY in SET section, TERM in SET section - CH
+$$ Modified : 06/28/2019; Added CYCLE/DRILL fix in CYCLE SECTION- CH
+$$ Modified : 07/16/2019; Added ROTATE section - DJ
+$$ Modified : 09/17/2019; Added CYCLE189 section - DJ
+$$ Modified : 10/10/2019; Added M600 Shower Coolant - DJ
+$$ Modified : 10/28/2019; Added code to loadtl section in case clamp off is active from previous tool - DJ
+$$ Modified : 10/30/2019; Added G_TIMER and added M691 and M692 for exaust - DJ
+$$ Modified : 10/31/2019; Added clamping after CYCLE800 - DJ
+
+
+$$ ****************************************************
+$$ *  G l o b a l   V a r i a b l e   S e c t i o n   *
+$$ ****************************************************
+
+  A=1;B=2;C=3;D=4;E=5;F=6;G=7;H=8;I=9;J=10;K=11;L=12;M=13;N=14;
+  O=15;P=16;Q=17;R=18;S=19;T=20;U=21;V=22;W=23;X=24;Y=25;Z=26
+
+  REDEF/ON           
+
+  HEDFLG = 0
+  GTCNT = 0
+  TCCNT = 0
+  TCFLG = 0
+  SELECF = 0
+  SCNCNT = 0
+  ATOCLP = 0                $$ AUTOMATIC UNCLAMP/CLAMP FLAG (DEFAULT = 0 (OFF))
+
+$$  C8MOD = 0                 $$ CYCLE800 MODE OFF BY DEFAULT
+  C8MOD = 1                 $$ CYCLE800 MODE ON BY DEFAULT
+  LC8MOD = 0
+  LSPED = 999999
+  LSTPC = 999999
+  MMOD = 0                  $$ TRAORI MODE OFF BY DEFAULT
+  FIXOF = 54
+  HEDPLN = 17
+  
+$$  CDHVAL = .0005                             $$ SET DEFAULT CHORD TOLERANCE VALUE
+$$  TCVAL = 11                                $$ SET DEFAULT TECHNOLOGY VALUE
+$$  ORVAL = .01                               $$ SET DEFAULT ORI TOLERANCE VALUE
+  SPDFLG = 0
+  HSMFLG = 0
+  TCTXT = TEXT/''           $$ DEFAULT TOOL COMMENT VARIABLE TO ZERO CHARACTERS
+  TRAVAL = TEXT/'200000'
+  ROTVAL = TEXT/'1'
+$$  REPLAC/(TEXT/',0'),(TEXT/',.0')
+
+
+  RESERV/TULTAB,100
+  RESERV/TCTAB,100          $$ TOOL COMMENT ARRAY
+  
+  PPWORD/HSMSET,4010                          $$ NEW VOCABULARY WORD
+
+$$ ****************************************************
+INCLUD/UNCAP17.VTB              
+$$ ****************************************************
+
+$$ ****************************************************
+$$ *           M A C R O      S E C T I O N           *
+$$ ****************************************************
+
+$$ _OUTPT MCD BLOCK EDIT MACRO
+_OUTPT = MACRO
+  SIMMOD = POSTF(1,1,1867)
+
+  IF(SIMMOD .EQ. 0)THEN
+    AWRD = POSTF(31,1,A)            $$ GET WORD VALUE FOR A
+    BWRD = POSTF(31,1,B)            $$ GET WORD VALUE FOR B
+    GWRD = POSTF(31,1,G)            $$ GET WORD VALUE FOR G
+
+    IF(ATOCLP .EQ. 1)THEN           $$ IF AUTO CLAMP ACTIVE
+      IF(AWRD .NE. 999999)XX = FILEF(4,1,(TEXT/'M21'),1)     $$ UNCLAMP A
+      IF(BWRD .NE. 999999)XX = FILEF(4,1,(TEXT/'M11'),1)     $$ UNCLAMP B
+    ENDIF
+
+    XX = POSTF(31,19)               $$ SEND THE OUTPUT BLOCK TO THE TAPE & LISTING FILES
+
+    IF(ATOCLP .EQ. 1)THEN           $$ IF AUTO CLAMP ACTIVE
+      IF(AWRD .NE. 999999)XX = FILEF(4,1,(TEXT/'M20'),1)     $$ CLAMP A
+      IF(BWRD .NE. 999999)XX = FILEF(4,1,(TEXT/'M10'),1)     $$ CLAMP B
+    ENDIF
+  ELSE
+    XX = POSTF(31,19)               $$ SEND THE OUTPUT BLOCK TO THE TAPE & LISTING FILES
+  ENDIF
+TERMAC
+
+TWARN = MACRO
+  TW = POSTF(1,1,1932)           $$ GET THE TOTAL # OF WARNINGS
+  TW = TW+1                      $$ ADD ONE
+  NUL = POSTF(2,1,1932,TW)       $$ RESET TOTAL WARNINGS
+TERMAC
+
+$$ ****************************************************
+$$ *          P A R T N O     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,PARTNO                  
+  PNTXT = TEXT/CLW                    
+  PNTXT = TEXT/OMIT,PNTXT,1
+  PNTXT = TEXT/OMIT,PNTXT,2
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *         M A C H I N     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,MACHIN                  
+  DMY = POSTF(13)
+  XX = POSTF(26,2,(ICODEF(MACHIN)),0)
+  MODE/90                          
+
+  DATE = TEXT/TIMES,1
+  FN = TEXT/PART,2
+  SEQNO/OFF                       
+  INSERT/';_N_',PNTXT,'_MPF','$'
+  SEQNO/ON
+  DISPLY/ON
+  PPRINT/'$PATH=/_N_MPF_DIR'
+  PPRINT/' GROB G550 5 AXIS MILL'
+  PPRINT/' DATE:  ',DATE
+  PPRINT/' FILE NAME:  ',FN
+
+$$ INITIALIZE THE TOOL COMMENT ARRAY
+  DO/INIT,INI1=1,100,1
+    TCTAB(INI1) = TEXT/''
+  INIT)CONTIN
+
+$$ READ THE CL FILE AND FIND THE TOOL NUMBERS AND COMMENTS
+  XX = POSTF(15,0,1)
+  DO/VOODOO,KK=1,100
+    KK = 1
+    XX = POSTF(14)
+    RECTYP = POSTF(7,2)
+    CASE/RECTYP
+     WHEN/2000
+      SUBTYP = POSTF(7,3)
+      CASE/SUBTYP 
+       WHEN/ICODEF(LOADTL),ICODEF(TURRET)
+        SCNCNT = SCNCNT + 1
+        TNN = POSTF(7,4)
+        TNNT = TEXT/CONVF,TNN,4,0,0,1,4
+        TULTAB(SCNCNT) = TEXT/TNNT          $$ STORE THE TOOL NUMBER
+        NTCCH = CANF(TCTXT,1)
+        IF(NTCCH .GT. 0)THEN
+          TCTAB(SCNCNT) = TEXT/TCTXT        $$ STORE THE TOOL COMMENT
+          TCTXT = TEXT/''
+        ELSE
+          TCTAB(LTCNT) = TEXT/''
+        ENDIF
+       WHEN/ICODEF(PPRINT)                  $$ FIND THE TOOL COMMENT
+        PPTXT = TEXT/CLW
+        PPTXT = TEXT/OMIT,PPTXT,1
+        PPTXT = TEXT/OMIT,PPTXT,2
+        TCF = INDXF(PPTXT,(TEXT/'T'))
+        IF(TCF .EQ. 1)THEN
+          TCTXT = TEXT/CLW
+          TCTXT = TEXT/OMIT,TCTXT,1
+          TCTXT = TEXT/OMIT,TCTXT,2
+        ENDIF
+      ENDCAS
+     WHEN/14000
+      KK = 101
+      XX = POSTF(15,0,2)
+    ENDCAS
+  VOODOO) CONTIN
+
+$$ OUTPUT THE TOOL LIST
+  PPRINT/'*************** TOOL LIST *****************'
+  DO/TLDO,TL1=1,SCNCNT,1
+$$    PPRINT/'TOOL #',TULTAB(TL1),' ',TCTAB(TL1)
+    PPRINT/TCTAB(TL1)
+  TLDO)CONTIN
+  PPRINT/'************ END OF TOOL LIST *************'
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *            M O D E      S E C T I O N            *
+$$ ****************************************************
+
+$$CIMFIL/ON,MODE
+$$  NUL = POSTF(20)
+$$  MTYP = POSTF(7,4)
+$$  MOD5 = POSTF(7,5)
+$$  CASE/MTYP
+$$    WHEN/(ICODEF(TRAORI))
+$$      CASE/MOD5
+$$        WHEN/(ICODEF(ON))
+$$          C8MOD = 0
+$$          LC8MOD = 0
+$$          MMOD = 1                        $$ SET MACHINE MODE TO TRAORI
+$$          NUL = POSTF(2,1,1510,301)       $$ SET XYZ TRANSFORMS TO CL XYZIJK
+$$          NUL = POSTF(2,1,1870,1)         $$ DISABLE MOTION ANALYSIS
+$$          NUL = POSTF(2,1,455,-32767)     $$ SET CIRCULAR INTERPOLATION OFF
+$$          NUL = POSTF(2,1,498,-32767)     $$ SET CIRCULAR CCLW CODE TO NONE
+$$          NUL = POSTF(2,1,499,-32767)     $$ SET CIRCULAR CLW CODE TO NONE
+$$          NUL = POSTF(2,1,4594,1)      $$ SET INTCOM FOR SOFT CYCLES   
+$$          GTCNT = 1
+$$        WHEN/(ICODEF(OFF))
+$$          C8MOD = 1
+$$          LC8MOD = 1
+$$          MMOD = 0                        $$ SET MACHINE MODE TO NORMAL
+$$          NUL = POSTF(2,1,1510,0)         $$ SET XYZ TRANSFORMS TO DEFAULT
+$$          NUL = POSTF(2,1,1870,3)         $$ ENABLE MOTION ANALYSIS
+$$          NUL = POSTF(2,1,455,0)          $$ SET CIRCULAR INTERPOLATION ON
+$$          NUL = POSTF(2,1,498,3)          $$ SET CIRCULAR CCLW CODE TO G3
+$$          NUL = POSTF(2,1,499,2)          $$ SET CIRCULAR CLW CODE TO G2
+$$          NUL = POSTF(2,1,4594,0)         $$ SET INTCOM FOR HARD CYCLES
+$$          INSERT/'TRAFOOF$'
+$$          LCLI = 999999
+$$          LCLJ = 999999
+$$          LCLK = 999999
+$$          GTCNT = 1
+$$      ENDCAS
+$$    WHEN/(ICODEF(YAXIS))
+$$      CALL/TWARN
+$$      PPRINT/' ***WARNING, MODE/YAXIS,ON-OFF NOT SUPPORTED!'
+$$    WHEN/OTHERS
+$$      NUL = POSTF(13)                   $$ OTHER MODE STATEMENT, PROCESS AS NORMAL
+$$  ENDCAS
+$$CIMFIL/OFF
+
+$$ *******************************************************
+$$ *            P I V O T Z     S E C T I O N            *
+$$ *******************************************************
+
+$$CIMFIL/ON,PIVOTZ                        $$ CATCH PIVOTZ STATEMENT
+$$  PZ4 = POSTF(7,4)
+$$  CASE/PZ4
+$$    WHEN/(ICODEF(OFF))                  $$ DISABLE THE CYCLE800 PLANAR MODE
+$$      C8MOD = 0
+$$      LC8MOD = 0
+$$      MMOD = 0                          $$ SET MACHINE MODE TO TRAORI
+$$      NUL = POSTF(2,1,1510,0)           $$ SET XYZ TRANSFORMATIONS TO NORMAL
+$$      NUL = POSTF(2,1,455,0)            $$ SET CIRCULAR INTERPOLATION ON
+$$      NUL = POSTF(2,1,498,3)            $$ SET CIRCULAR CCLW CODE TO G3
+$$      NUL = POSTF(2,1,499,2)            $$ SET CIRCULAR CLW CODE TO G2
+$$    WHEN/(ICODEF(ON))                   $$ ENABLE THE CYCLE800 PLANAR MODE
+$$      C8MOD = 1
+$$      LC8MOD = 1
+$$      MMOD = 0                          $$ SET MACHINE MODE TO NORMAL
+$$      NUL = POSTF(2,1,1510,0)           $$ SET XYZ TRANSFORMATIONS TO NORMAL
+$$      NUL = POSTF(2,1,455,0)            $$ SET CIRCULAR INTERPOLATION ON
+$$      NUL = POSTF(2,1,498,3)            $$ SET CIRCULAR CCLW CODE TO G3
+$$      NUL = POSTF(2,1,499,2)            $$ SET CIRCULAR CLW CODE TO G2
+$$      LCLI = 999999
+$$      LCLJ = 999999
+$$      LCLK = 999999
+$$  ENDCAS
+$$CIMFIL/OFF
+
+$$ ****************************************************
+$$ *            S E T     S E C T I O N               *
+$$ ****************************************************
+
+CIMFIL/ON,SET                   $$ CATCH SET STATEMENT
+  SET4=POSTF(7,4)               $$ GET THE 4TH WORD
+  SET5=POSTF(7,5)               $$ GET THE 5TH WORD
+   
+
+  IF(SET4 .EQ. (ICODEF(HED)))THEN
+    SET9=POSTF(7,9)             $$ GET THE 9TH WORD  
+    IF(SET9 .EQ. (ICODEF(NEGY)))THEN
+    XX=POSTF(9,9,(ICODEF(POSY)))
+    ENDIF    
+    IF(SET9 .EQ. (ICODEF(NEGY)) .OR. SET9 .EQ. (ICODEF(POSY)))THEN
+    	HEDPLN = 18 
+    ENDIF
+    IF(SET9 .EQ. (ICODEF(NEGX)) .OR. SET9 .EQ. (ICODEF(POSX)))THEN
+    	HEDPLN = 19 
+    ENDIF    
+    XX=POSTF(13)                $$ EXECUTE THE SET/HED,...   
+    IF(SET5 .EQ. (ICODEF(OFF)) .OR. SET9 .EQ. (ICODEF(NEGZ)))THEN     $$ CHECK THE ORIENTATION
+      HEDFLG=0                  $$ FLAG USED IN LOADTL
+      XX=POSTF(2,1,4594,0)      $$ SET INTCOM FOR HARD CYCLES
+      XX=POSTF(2,1,4316,0)      $$ SET INTCOM FOR PULBAC IN CYCLES - G98/G99
+      NUL = POSTF(2,1,455,0)          $$ SET CIRCULAR INTERPOLATION ON
+      NUL = POSTF(2,1,498,3)            $$ SET CIRCULAR CCLW CODE TO G3
+      NUL = POSTF(2,1,499,2)            $$ SET CIRCULAR CLW CODE TO G2
+      HEDPLN = 17
+    ELSE
+      HEDFLG=1                  $$ FLAG USED IN LOADTL
+      XX=POSTF(2,1,4594,1)      $$ SET INTCOM FOR SOFT CYCLES
+      XX=POSTF(2,1,4316,1)      $$ SET INTCOM FOR NO PULBAC IN CYCLES - DOESN'T USE G98/G99
+      NUL = POSTF(2,1,498,2)            $$ SET CIRCULAR CCLW CODE TO G3
+      NUL = POSTF(2,1,499,3)            $$ SET CIRCULAR CLW CODE TO G2
+$$      NUL = POSTF(2,1,455,-32767)     $$ SET CIRCULAR INTERPOLATION OFF
+    ENDIF
+  ELSE
+    XX=POSTF(13)
+  ENDIF
+  
+  	IF(MMOD .EQ. 1)THEN
+   	ERR1=TEXT/'CANNOT USE 90DEG WITH TRAORI, PROCESSING TERMINATED!'
+      REWIND/PUNCH                    $$ EMPTY THE PUNCH FILE
+      PPRINT/ERR1                        $$ WRITE THE ERROR MESSAGE TO THE LST FILE
+      XX=POSTF(9,2,14000)             $$ MAKE A FINI CL RECORD
+      XX=POSTF(13)                        $$ EXECUTE THE FINI
+     ENDIF
+CIMFIL/OFF
+
+
+$$ ****************************************************
+$$ *         C O O L N T     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,COOLNT
+  C4TH=POSTF(7,4)
+  IF(C4TH .EQ. (ICODEF(THRU)))THEN
+    XX=POSTF(9,5,(ICODEF(HIGH)))
+    XX=POSTF(12,5)
+  ENDIF
+  XX=POSTF(13)
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *         L O A D T L     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,LOADTL
+  $$MMOD=0
+  DCYCL=1  
+  XX = POSTF(20)
+  WRD = ICODEF(CYCLE)
+  WRDV = POSTF(30,2000,WRD,0,15)
+    IF(WRDV .EQ. 0) THEN
+       CYCTYP = POSTF(7,4)
+       IF(CYCTYP .NE. (ICODEF(THREAD)) .AND. $
+             CYCTYP .NE. (ICODEF(CIRCUL)) .AND. $
+                CYCTYP .NE. (ICODEF(ARCSLP)))THEN
+$$                INSERT/'TEST$'
+                DCYCL=0           $$CYCLE FLAG
+                ELSE
+$$                DCYCL=NTHN                 
+       ENDIF
+    ENDIF
+    IF(MMOD .EQ. 1) DCYCL=1
+  XX = POSTF(21)
+$$ KEEP ABOVE CODE JUST INCASE
+  
+  TNN = POSTF(7,4)
+  OFS = TNN
+  ADJF = POSTF(28,3,(ICODEF(ADJUST)))
+  IF(ADJF .GT. 0)OFS = POSTF(7,(ADJF+1))
+  TCCNT = TCCNT+1
+  TCFLG = 1
+$$  HSMFLG = 1
+  TNNT = TEXT/CONVF,TNN,4,0,0,1,4
+
+  IF(HEDFLG .EQ. 1)THEN
+    XX=POSTF(2,1,1867,1)
+     RAPID
+     ROTATE/CAXIS,ATANGL,0      $$ SPIN THE C AXIS BACK TO ZERO IN SIMULATION MODE
+    XX=POSTF(2,1,1867,0)
+    XX = POSTF(2,3,639,0)       $$ RESET THE C AXIS WIND UP TO ZERO
+
+    XX=POSTF(2,1,4700,0)        $$ RIGHT ANGLE HEAD LOADED, USE THE TOOL LENGTH
+  ELSE
+    XX=POSTF(2,1,4700,1)        $$ DO NOT USE TOOL LENGTH
+  ENDIF
+
+  IF(TCCNT .EQ. 1)THEN
+     SEQNO/OFF
+     INSERT/'; G_LST("_',FN,'",1,1,1)$'
+     INSERT/'; G_TIMER(1)$'
+     OPSTOP
+     INSERT/';EDIT WORKOFFSET ADJUSTMENT LINE AT BEGINNING OF PROGRAM$'
+     INSERT/';WHEN RESTARTING TOOL YOU MUST USE W/ CALCULATION$'
+     INSERT/';EDIT ZERO WORKOFFSET AT END OF PROGRAM$'
+     INSERT/'G_ZP_WRITE(1,0,0,0,0,0) ;WORKOFFSET ADJUSTMENT LINE$'
+     INSERT/';1ST VALUE IS G54=1 -> G505=5 -> G599=99$'
+     INSERT/';2ND VALUE IS X OFFSET$'
+     INSERT/';3RD VALUE IS Y OFFSET$'
+     INSERT/';4TH VALUE IS Z OFFSET$'
+     INSERT/';5TH VALUE IS A ROTATION$'
+     INSERT/';6TH VALUE IS B ROTATION$'
+     SEQNO/ON
+     INSERT/'G_BACK_TUNNEL$'
+     INSERT/'M692 ;EXAUST ON$'
+     
+     
+  $$  INSERT/'M10 M20$'           $$ A AND B AXIS UNCLAMP
+$$  ELSE
+$$    INSERT/'CYCLE832(0,0,1)$'
+  ENDIF
+  INSERT/'M5$'
+  INSERT/'M9$'
+$$  OPSTOP
+  INSERT/'CYCLE800()$'
+  
+  $$Added below in case CLAMP/ON wasn't added after 5AX cuts
+        C8MOD = 1
+        LC8MOD = 1
+        MMOD = 0                        $$ SET MACHINE MODE TO NORMAL
+        NUL = POSTF(2,1,1510,0)         $$ SET XYZ TRANSFORMS TO DEFAULT
+        NUL = POSTF(2,1,1870,3)         $$ ENABLE MOTION ANALYSIS
+        NUL = POSTF(2,1,455,0)          $$ SET CIRCULAR INTERPOLATION ON
+        NUL = POSTF(2,1,498,3)          $$ SET CIRCULAR CCLW CODE TO G3
+        NUL = POSTF(2,1,499,2)          $$ SET CIRCULAR CLW CODE TO G2
+        NUL = POSTF(2,1,4594,0)         $$ SET INTCOM FOR HARD CYCLES
+        $$INSERT/'TRAFOOF$'
+        LCLI = 999999
+        LCLJ = 999999
+        LCLK = 999999
+        $$GTCNT = 1
+  
+  INSERT/'TRAFOOF$'
+  INSERT/'G_BACK_TUNNEL$'
+
+  INSERT/'T="',TNNT,'"$'
+  INSERT/'M6$'
+  OPSTOP
+  INSERT/'; ',PPTXT,'$'
+$$  OPSTOP
+  INSERT/'G700$'
+
+  IF(SCNCNT .GT. 1)THEN
+    IF(TCCNT .LT. SCNCNT)THEN
+      INSERT/'T="',TULTAB(TCCNT+1),'"$'
+    ELSE
+      INSERT/'T="',TULTAB(1),'"$'
+    ENDIF
+  ENDIF
+  INSERT/';M600$'
+
+  XX = POSTF(2,1,1867,1)
+   XX = POSTF(21)
+   XX = POSTF(13)
+$$   LOADTL/TNN
+  XX = POSTF(2,1,1867,0)
+
+  LSPED = 999999
+  GTCNT = 1
+
+  LCLI = 999999
+  LCLJ = 999999
+  LCLK = 999999
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *          S E L E C T     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,SELECT
+  SEL4 = POSTF(7,4)
+$$  IF(GTCNT .EQ. 0)PREFUN/FIXOF
+$$  XX = POSTF(2,1,1918,2)
+$$  SELECF = 1
+CIMFIL/OFF
+
+
+$$ ****************************************************
+$$ *          H S M S E T     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,HSMSET
+HSMFLG=1   
+CDHVAL=POSTF(7,4)                             $$ GET CHORD TOLERANCE VALUE
+TECVAL=POSTF(7,5)                             $$ GET TECHNOLOGY VALUE
+ORIVAL=POSTF(7,6)                             $$ GET ORI TOLERANCE VALUE
+
+
+CDVAL = TEXT/CONVF,CDHVAL,6,4,0,0,4
+
+CASE/TECVAL
+$$	WHEN/0
+$$      TCVAL = 0
+$$	WHEN/1
+$$      TCVAL = TEXT/OMIT'_FINISH'
+$$	WHEN/2
+$$		TCVAL = TEXT/OMIT'_SEMIFIN'
+$$	WHEN/3
+$$		TCVAL = TEXT/OMIT'_ROUGH'
+	WHEN/11
+   	TCVAL = TEXT/'_ORI_FINISH'
+	WHEN/12
+   	TCVAL = TEXT/'_ORI_SEMIFIN'
+	WHEN/13
+   	TCVAL = TEXT/'_ORI_ROUGH'
+	WHEN/OTHERS
+   	ERR1=TEXT/'INVALID HSMSET COMMAND, PROCESSING TERMINATED!'
+      REWIND/PUNCH                    $$ EMPTY THE PUNCH FILE
+      PPRINT/ERR1                        $$ WRITE THE ERROR MESSAGE TO THE LST FILE
+      XX=POSTF(9,2,14000)             $$ MAKE A FINI CL RECORD
+      XX=POSTF(13)                        $$ EXECUTE THE FINI
+ENDCAS
+
+ORVAL = TEXT/CONVF,ORIVAL,4,4,0,0,4
+
+IF(TCFLG .EQ. 0)THEN
+  INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
+ENDIF
+
+$$INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
+$$IF(HSMFLG .EQ. 1) THEN
+$$	IF(CDVAL .NE. PCDVAL) .OR. $
+$$			TECVAL .NE. PTCVAL) .OR. $
+$$				ORVAL .NE. PORVAL) THEN
+$$  INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
+$$ENDIF
+$$HSMFLG=0
+CIMFIL/OFF
+
+
+$$ ****************************************************
+$$ *          S P I N D L     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,SPINDL 
+  XX = POSTF(20)
+  IF(DCYCL .EQ. 1)THEN
+    IF(HSMFLG .EQ. 1)THEN
+      INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
+    ELSE
+      INSERT/'CYCLE832(.0005,_ORI_FINISH,1)$'
+    ENDIF
+$$    IF(HSMFLG .EQ. 0)THEN
+$$      INSERT/'CYCLE832(.0005,_ORI_FINISH,.01)$'
+$$    ENDIF            
+    XX = POSTF(21)
+  ENDIF
+ 
+$$  IF(TCFLG .EQ. 1)THEN
+$$    INSERT/'CYCLE832(0.0005,_ORI_FINISH,0.01)$'
+$$    XX = POSTF(21)
+$$  ENDIF
+
+  RPMF = POSTF(28,2,(ICODEF(RPM)))
+  IF(RPMF .GT. 0)THEN
+    SPED = POSTF(7,4)
+    IF(SPED .NE. LSPED)THEN
+      XX = POSTF(13)
+      LSPED = SPED
+    ENDIF
+  ELSE
+    XX = POSTF(13)
+  ENDIF
+  DCYCL=0  
+$$  SPDFLG=0
+$$  PCDVAL=CDVAL               $$ SAVE CHORD TOLERANCE VALUE
+$$  PTCVAL=TECVAL               $$ SAVE TECHNOLOGY VALUE
+$$  PORVAL=ORVAL               $$ SAVE ORI TOLERANCE VALUE
+$$HSMFLG=1
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *           C Y C L E     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,CYCLE
+  $$INSERT/'M11 M21$'
+  CYCTYP = POSTF(7,4)
+  IF(CYCTYP .EQ. (ICODEF(THRU)))THEN
+    $$xx=postf(13)
+    TDIA=POSTF(7,10)
+    FDIA=POSTF(7,9)
+    HDEP=POSTF(7,6)
+    RAPTO=POSTF(7,12)
+    F_RATE=POSTF(7,8)
+    B_DIA=(FDIA)-(TDIA)
+    STEP=.1
+    X_POS = postf(1,3,(291+x))                $$ GET CURRENT X
+    Y_POS = postf(1,3,(291+y))                $$ GET CURRENT Y
+    CURZ = postf(1,3,(291+Z))                $$ GET CURRENT Z
+    Z_TOP=CURZ-RAPTO
+    ZBOT=Z_TOP-HDEP
+    R_PLN=Z_TOP+RAPTO
+    $$NOTE:RPLN VARIABLE IS SET IN GOTO SECTION-NOT CURRENTLY USING
+    INSERT/';EDIT FIRST PARAMETER IN LINE BELOW TO ADJUST BORE SIZE$'
+    INSERT/';EDIT LAST PARAMETER IN LINE BELOW TO ADJUST SPIRAL'$
+    ' STEP AMOUNT$'
+    INSERT/'CYCLE189(' $
+    ,OMIT,B_DIA,',',OMIT,X_POS,',',OMIT,Y_POS,',',OMIT,R_PLN $
+    ,',',OMIT,Z_TOP,',',OMIT,F_RATE $
+    ,',',OMIT,ZBOT,',',OMIT,STEP,')$'
+    xx=postf(14)
+    prefun/0,next
+    
+    $$XX = POSTF(2,1,1867,1)
+    $$XX = POSTF(21)
+    $$XX = POSTF(13)
+    $$XX = POSTF(2,1,1867,0) 
+    
+    JUMPTO/10
+  ENDIF
+  IF(CYCTYP .NE. (ICODEF(OFF)))THEN
+    R1V = .1
+    R1F = POSTF(28,3,(ICODEF(RAPTO)))
+    IF(R1F .GT. 0)THEN
+      R1V = POSTF(7,(R1F+1))
+    ENDIF
+    R2F = POSTF(28,3,(ICODEF(RTRCTO)))
+    IF(R2F .GT. 0)THEN
+      R2V = POSTF(7,(R2F+1))
+      IF(R2V .EQ. 0 .OR. R2V .EQ. R1F)THEN
+        NR2V = R1V+.1
+        XX = POSTF(10,(R2F+1),NR2V)
+      ENDIF
+    ENDIF
+    XX = POSTF(20)
+    IF(CYCTYP .NE. (ICODEF(THREAD)) .AND. $
+          CYCTYP .NE. (ICODEF(CIRCUL)) .AND. $
+              CYCTYP .NE. (ICODEF(ARCSLP)))THEN
+$$      INSERT/'CYCLE832()$'
+      REPLAC/(TEXT/'G0 F'),(TEXT/'F'),1,1
+      XX = POSTF(21)
+    ENDIF
+    IF(CYCTYP .EQ. (ICODEF(BORE)))THEN      $$ FIX THE BORING CYCLE...
+      CFF = POSTF(28,3,(ICODEF(IPM)))
+      IF(CFF .GT. 0)CFED = POSTF(7,(CFF+1))
+        NEND = TEXT/',',CFED,',',CFED,',,0,11)'
+        NEND = TEXT/OMIT,NEND,3
+        REPLAC/(TEXT/',3,0,0,0,0)'),NEND,1,1
+    ENDIF
+	 IF(CYCTYP .EQ. (ICODEF(DRILL)))THEN      $$ FIX THE DRILLING CYCLE...
+		REPLAC/(TEXT/', ,0)'),(TEXT/', ,.0)')
+	 ENDIF
+  ENDIF
+  
+  XX = POSTF(13)
+  10)CONTIN
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *            G O T O     S E C T I O N             *
+$$ ****************************************************
+
+CIMFIL/ON,GOTO                       $$ CATCH THE GOTO STATEMENT
+  XX = POSTF(20)
+
+  CLI = POSTF(7,9)
+  CLJ = POSTF(7,10)
+  CLK = POSTF(7,11)
+
+    
+$$  IF(CLI .EQ. 0 .AND. CLJ .EQ. 0 .AND. CLK .EQ. 1)THEN
+$$    PLANC = 17
+$$  ELSE
+$$    PLANC = 19
+$$  ENDIF
+
+  IF(C8MOD .EQ. 1)THEN
+    CONTRL/TOLER,IF,.00001
+    IF(CLI .NE. LCLI .OR. CLJ .NE. LCLJ .OR. CLK .NE. LCLK)THEN
+      RPMOD = POSTF(1,1,856)
+      REPEAT/OFF
+      XX = POSTF(2,1,1867,1)
+       RAPID
+       XX = POSTF(21)
+       XX = POSTF(13)
+      XX = POSTF(2,1,1867,0)
+      CURX = POSTF(1,3,315)
+      CURY = POSTF(1,3,316)
+      CURZ = POSTF(1,3,317)
+      CURA = POSTF(1,3,292)
+      IF(CURA .EQ. 999999)CURA = 0
+      CURB = POSTF(1,3,293)
+      IF(CURB .EQ. 999999)CURB = 0
+      CURF = POSTF(1,3,297)
+      IF(RPMOD .EQ. (ICODEF(ON)))THEN
+        RPG = 0
+        CURF = 999999
+      ELSE
+        RPG = 1
+      ENDIF
+      SELECF = 0
+      XX = POSTF(2,1,1918,0)
+      PREFUN/FIXOF
+$$      INSERT/'G',OMIT,PLANC,'$'
+      INSERT/'G17$'
+      C8A = TEXT/CONVF,CURA,8,3,0,0,4
+      C8B = TEXT/CONVF,CURB,8,3,0,0,4
+      
+      IF(CURA .LT. -90)THEN          $$ IF A-90.001 / A-180. DO NEXT
+          TRAVAL = TEXT/'100000'
+        	 ROTVAL = TEXT/'-1'
+      ELSE
+          TRAVAL = TEXT/'200000'
+        	 ROTVAL = TEXT/'1'
+      ENDIF
+      
+$$INSERT/'CYCLE800(0,"TC_GROB",200000,54,0,0,0,C8A,C8B,0.,0,0.,0.,1,,0)$'
+		INSERT/'CYCLE800()$'
+
+    $$INSERT/'M11 M21$'
+    
+$$      INSERT/'CYCLE800(1,"TC_GROB",200000,\$'
+      INSERT/'CYCLE800(0,"TC_GROB",',TRAVAL,',\$'
+      SEQNO/OFF
+$$      INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,1,,0)$'
+      INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,',ROTVAL,',,0)$'
+      SEQNO/ON
+
+      $$INSERT/'M10 M20$'
+
+      PREFUN/FIXOF
+      POSTN/OUT,D,1
+      POSTN/OUT,G,RPG,X,CURX,Y,CURY,F,CURF
+      POSTN/OUT,Z,CURZ
+$$      IF(HEDFLG=1) INSERT/'G',OMIT,PLANC,'$'
+$$      ENDIF
+     INSERT/'G',OMIT,HEDPLN,'$'
+      LCLI = CLI
+      LCLJ = CLJ
+      LCLK = CLK
+$$      LSTPC = PLANC
+    ELSE
+      XX = POSTF(21)
+      XX = POSTF(13)                   $$ PROCESS AS NORMAL
+    ENDIF
+    CONTRL/TOLER,IF,0
+  ELSE
+    IF(TCFLG .EQ. 1 .OR. GTCNT .EQ. 1)THEN
+      NUL = POSTF(2,1,1510,0)         $$ SET XYZ TRANSFORMS TO DEFAULT
+      RPMOD = POSTF(1,1,856)
+      REPEAT/OFF
+      XX = POSTF(2,1,1867,1)
+       RAPID
+       XX = POSTF(21)
+       XX = POSTF(13)
+      XX = POSTF(2,1,1867,0)
+      CURX = POSTF(1,3,315)
+      CURY = POSTF(1,3,316)
+      CURZ = POSTF(1,3,317)
+      CURA = POSTF(1,3,292)
+      IF(CURA .EQ. 999999)CURA = 0
+      CURB = POSTF(1,3,293)
+      IF(CURB .EQ. 999999)CURB = 0
+      CURF = POSTF(1,3,297)
+      IF(RPMOD .EQ. (ICODEF(ON)))THEN
+        RPG = 0
+        CURF = 999999
+      ELSE
+        RPG = 1
+      ENDIF
+$$      INSERT/'G',OMIT,PLANC,'$'
+      INSERT/'G17$'
+      IF(MMOD .EQ. 1)THEN
+        C8A = TEXT/CONVF,CURA,8,3,0,0,4
+        C8B = TEXT/CONVF,CURB,8,3,0,0,4
+        
+        IF(CURA .LT. -90)THEN          $$ IF A-90.001 / A-180. DO NEXT
+        		TRAVAL = TEXT/'100000'
+        	   ROTVAL = TEXT/'-1'
+        ELSE
+            TRAVAL = TEXT/'200000'
+        	   ROTVAL = TEXT/'1'
+        ENDIF
+        $$ELSE
+         $$   TRNVAL = TEXT/OMIT'200000'
+        $$    ROTVAL = TEXT/OMIT'1'
+        
+         
+$$        INSERT/'CYCLE800(1,"TC_GROB",200000,\$'
+		INSERT/'CYCLE800(0,"TC_GROB",',TRAVAL,',\$'
+        SEQNO/OFF
+$$        INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,1,,0)$'
+      INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,',ROTVAL,',,0)$'
+        SEQNO/ON
+        NUL = POSTF(2,1,1510,301)       $$ SET XYZ TRANSFORMS TO CL XYZIJK
+      ENDIF
+      PREFUN/FIXOF
+      POSTN/OUT,D,1
+      POSTN/OUT,G,RPG,X,CURX,Y,CURY,F,CURF
+      POSTN/OUT,Z,CURZ
+      IF(MMOD .EQ. 1)THEN
+        INSERT/'CYCLE800()$'
+        INSERT/'TRAORI$'
+        PREFUN/FIXOF
+        POSTN/OUT,D,1
+      ENDIF
+$$      LSTPC = PLANC
+    ELSE
+      XX = POSTF(21)
+      XX = POSTF(13)                   $$ PROCESS AS NORMAL
+    ENDIF
+  ENDIF
+  IF(SELECF .EQ. 1)THEN
+    XX = POSTF(2,1,1918,0)
+    SELECF = 0
+  ENDIF
+
+  IF(TCFLG .EQ. 1)TCFLG = 0
+  IF(GTCNT .EQ. 1)GTCNT = 0
+
+$$  IF(HSMFLG .EQ. 1)HSMFLG = 0
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *         T H R E A D     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,THREAD
+  THD4 = POSTF(7,4)
+  IF(THD4 .EQ. (ICODEF(TURN)))THEN
+    NTHW = POSTF(5)
+    IF(NTHW .GT. 4)THEN
+      PTCH = POSTF(7,5)
+      PTCHM = PTCH
+      REPLAC/(TEXT/'G1'),(TEXT/'G33'),1,1
+      REPLAC/(TEXT/' F'),(TEXT/' K'),1,1
+    ENDIF
+  ELSE
+    XX = POSTF(13)
+  ENDIF
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *          C L A M P     S E C T I O N             *
+$$ ****************************************************
+
+$$CIMFIL/ON,CLAMP                 $$ CATCH CLAMP STATEMENT
+$$  CLMPMD=POSTF(7,4)             $$ GET THE 4TH WORD
+$$  IF(CLMPMD .EQ. ICODEF(OFF))THEN      $$ IF CLAMP OFF
+$$    INSERT/'M11 M21$'           $$ FORCE A AND B AXIS UNCLAMP
+$$    ATOCLP=0                    $$ DISABLE FLAG
+    
+    
+$$  ELSE
+$$    ATOCLP=1                    $$ ENABLE FLAG
+$$  ENDIF
+$$CIMFIL/OFF
+
+CIMFIL/ON,CLAMP                 $$ CATCH CLAMP STATEMENT
+  CLMPMD=POSTF(7,4)             $$ GET THE 4TH WORD
+  IF(CLMPMD .EQ. ICODEF(OFF))THEN      $$ IF CLAMP OFF
+    INSERT/'M11 M21$'           $$ FORCE A AND B AXIS UNCLAMP
+    ATOCLP=0                    $$ DISABLE FLAG
+  ENDIF
+  CASE/CLMPMD
+     WHEN/(ICODEF(OFF))
+       C8MOD = 0
+       LC8MOD = 0
+       MMOD = 1                        $$ SET MACHINE MODE TO TRAORI
+       NUL = POSTF(2,1,1510,301)       $$ SET XYZ TRANSFORMS TO CL XYZIJK
+       NUL = POSTF(2,1,1870,1)         $$ DISABLE MOTION ANALYSIS
+       NUL = POSTF(2,1,455,-32767)     $$ SET CIRCULAR INTERPOLATION OFF
+       NUL = POSTF(2,1,498,-32767)     $$ SET CIRCULAR CCLW CODE TO NONE
+       NUL = POSTF(2,1,499,-32767)     $$ SET CIRCULAR CLW CODE TO NONE
+       NUL = POSTF(2,1,4594,1)      $$ SET INTCOM FOR SOFT CYCLES   
+       GTCNT = 1
+    ENDCAS
+    
+	IF(CLMPMD .EQ. ICODEF(ON))THEN      $$ IF CLAMP ON   
+   	ATOCLP=1                    $$ ENABLE FLAG
+   ENDIF
+   
+  	CASE/CLMPMD
+      WHEN/(ICODEF(ON))
+        C8MOD = 1
+        LC8MOD = 1
+        MMOD = 0                        $$ SET MACHINE MODE TO NORMAL
+        NUL = POSTF(2,1,1510,0)         $$ SET XYZ TRANSFORMS TO DEFAULT
+        NUL = POSTF(2,1,1870,3)         $$ ENABLE MOTION ANALYSIS
+        NUL = POSTF(2,1,455,0)          $$ SET CIRCULAR INTERPOLATION ON
+        NUL = POSTF(2,1,498,3)          $$ SET CIRCULAR CCLW CODE TO G3
+        NUL = POSTF(2,1,499,2)          $$ SET CIRCULAR CLW CODE TO G2
+        NUL = POSTF(2,1,4594,0)         $$ SET INTCOM FOR HARD CYCLES
+        INSERT/'TRAFOOF$'
+        LCLI = 999999
+        LCLJ = 999999
+        LCLK = 999999
+        GTCNT = 1
+   ENDCAS
+
+CIMFIL/OFF
+$$ ****************************************************
+$$ *           H O M E Z     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,HOMEZ                   $$ CATCH HOMEZ STATEMENT
+  INSERT/'CYCLE800()$'
+  PREFUN/FIXOF
+  IF(MMOD .EQ. 1) INSERT/'TRAFOOF$'
+  INSERT/'G_BACK_TUNNEL$'
+$$  INSERT/'G0 G90 SUPA D0 Z=Z_HOMEPOS M=QU(5) M=QU(9) M90$'
+$$ UPDATE THE PREVIOUS Z LOCATIONS TO TELL THE POST WE WENT UP IN Z
+  XX = POSTF(2,3,381,30.123456)   $$ RESET Z LOCATIONS IN THE POST
+  XX = POSTF(2,3,410,30.123456)
+  XX = POSTF(2,3,416,30.123456)
+  IF(C8MOD .EQ. 1)THEN
+    LCLI = 999999
+    LCLJ = 999999
+    LCLK = 999999
+  ENDIF
+  GTCNT=1                         $$ SET FLAG TO REINSTATE EVERYTHING IN GOTO SECTION
+CIMFIL/OFF
+
+$$$$$$$$$$$$ROTATE SECTION
+
+CIMFIL/ON,ROTATE
+  Rslt=postf(2,1,1867,1)          $$ SIMULATION MODE ON
+  XX=POSTF(2,1,1918,2)            $$ MAKE MOTION REGISTERS NON-MODAL (XYZABC)
+  Rslt=postf(13)                  $$ PROCESS RECORD
+  Rstl=postf(2,1,1867,0)          $$ SIMULATION MODE OFF
+  XX=POSTF(2,1,1918,0)            $$ MAKE MOTION REGISTERS MODAL
+CIMFIL/OFF
+
+
+$$ ********************** CLEARZ *********************
+
+CIMFIL/ON,CLEARZ
+  ZVAL=POSTF(7,4)
+  INSERT/'CYCLE800()$'
+  PREFUN/FIXOF
+  IF(MMOD .EQ. 1) INSERT/'TRAFOOF$'
+  PREFUN/90,NEXT                         $$ OUTPUT G90 ON NEXT OUTPUT LINE
+  POSTN/OUT,G,0,Z,ZVAL    
+$$ UPDATE THE PREVIOUS Z LOCATIONS TO TELL THE POST WE WENT UP IN Z
+  XX = POSTF(2,3,381,30.123456)
+  XX = POSTF(2,3,410,30.123456)
+  XX = POSTF(2,3,416,30.123456)
+  IF(C8MOD .EQ. 1)THEN
+    LCLI = 999999
+    LCLJ = 999999
+    LCLK = 999999
+  ENDIF
+  GTCNT=1                         $$ SET FLAG TO REINSTATE EVERYTHING IN GOTO SECTION
+CIMFIL/OFF
+
+$$ ********************** TMCOMP SECTION *********************
+
+CIMFIL/ON,TMCOMP
+  CMPMD = POSTF(7,4)
+  IF(CMPMD .EQ. ICODEF(ON))THEN         $$ IF TMCOMP = ON
+    PREFUN/41,NEXT
+  TMC = 0
+  ELSEIF(CMPMD .EQ. ICODEF(OFF))THEN    $$ IF TMCOMP = OFF
+    PREFUN/40,NEXT
+  TMC = 1
+  ENDIF
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *           P P R I N T     S E C T I O N            *
+$$ ****************************************************
+
+CIMFIL/ON,PPRINT                $$ CATCH PPRINT STATEMENT
+  XX=POSTF(20)                  $$ SAVE CL RECORD
+  DMY=POSTF(15,0,1)             $$ SAVE CURRENT CL FILE POINTER LOCATION
+  RSLT=POSTF(14)                $$ READ NEXT CL RECORD
+  NXTRCD=POSTF(7,3)             $$ GET CL WORD
+  DMY=POSTF(15,0,2)             $$ RE-POSITION THE CL FILE POINTER TO SAVED LOCATION
+
+  IF(NXTRCD.EQ.(ICODEF(LOADTL)))THEN    $$ IF NEXT IS LOADTL GET TOOL COMMENT DATA AND DO NOT SEND PPRINT TO THE POST
+    XX=POSTF(21)                $$ LOAD SAVED CL RECORD
+    PPTXT=TEXT/CLW              $$ GET THE PPRINT TEXT
+    PPTXT=TEXT/OMIT,PPTXT,2     $$ OMIT LEADING ZEROS
+    PPTXT=TEXT/OMIT,PPTXT,1     $$ OMIT TRAILING ZEROS
+  ELSE                          $$ IF NEXT IS NOT LOADTL
+$$*****REMOVE OPERATION : FROM COMMENTS AND REMOVE ANY COMMENTS LESS THAN 3 CHARACTERS LONG
+    XX=POSTF(21)                $$ LOAD SAVED CL RECORD
+    PTXT=TEXT/CLW               $$ READ THE TEXT
+    PTXT=TEXT/OMIT,PTXT,2       $$ OMIT LEADING BLANKS
+    PTXT=TEXT/OMIT,PTXT,1       $$ OMIT TRAILING BLANKS
+    MTXT3=TEXT/'OPERATION NAME : '     $$ ASSIGN VARIBLE TO TEXT TO BE SEARCHED
+    MTXT4=TEXT/''               $$ ASSIGN VARIABLE TO REPLACEMENT TEXT
+    MTXT1=TEXT/MODIFY,PTXT,MTXT3,MTXT4,0    $$ REPLACE OLD TEXT WITH NEW TEXT
+    NCH9=CANF(MTXT1,1)          $$ COUNT NUMBER OF CHARACTERS
+    IF(NCH9.GT.3)INSERT/'; ',MTXT1,'$'      $$ IF LESS THAN 3 CHARACTERS OUTPUT COMMENT
+  ENDIF
+CIMFIL/OFF
+
+
+$$ ****************************************************
+$$ *          S E L C T L     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,SELCTL
+$$ DO NOT PROCESS SELCTL STATEMENTS
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *          S W I T C H     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,SWITCH
+$$ DO NOT PROCESS SWITCH STATEMENTS
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *          R E W I N D     S E C T I O N           *
+$$ ****************************************************
+
+CIMFIL/ON,REWIND
+$$ DO NOT PROCESS REWIND STATEMENTS
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *            F I N I     S E C T I O N             *
+$$ ****************************************************
+
+CIMFIL/ON,FINI
+  DMY = POSTF(20)
+
+  INSERT/'CYCLE800()$'
+  INSERT/'M11 M21$'
+  INSERT/'G_BACK_TUNNEL$'
+  OPSTOP
+  INSERT/'G_ZP_WRITE(1,0,0,0,0,0) ;ZERO WORKOFFSET ADJUSTMENT LINE$'
+  INSERT/'HOME_PROG=""$'
+  INSERT/'G_TOOL(0,0); OFFSET:L,R$'
+  INSERT/'O_PROG_READY=1$'
+  INSERT/'G710$'
+  INSERT/'G0 G90 G53 Z=Z_HOMEPOS D0 M=QU(5) M=QU(9) M90$'
+  INSERT/'G53 X=X_HOMEPOS Y=Y_HOMEPOS$'
+  INSERT/'G53 A=DC(0) B=DC(0)$'
+  INSERT/'M691 ;EXAUST OFF$'
+  INSERT/'; G_TIMER(0)$'
+  
+
+$$  INSERT/'G0 G90 SUPA D0 Z=Z_HOMEPOS M=QU(5) M=QU(9) M90$'
+$$  INSERT/'G0 G90 SUPA X=X_HOMEPOS Y=Y_HOMEPOS$'
+$$  INSERT/'G0 G90 SUPA A=A_HOMEPOS B=DC(B_HOMEPOS)$'
+
+  INSERT/'M25$'
+  INSERT/'M17$'
+  INSERT/'M30$'
+
+  DMY = POSTF(21)
+  DMY = POSTF(13)
+CIMFIL/OFF
+
+$$ ****************************************************
+$$ *          E n d   O f   F I L   F i l e           *
+$$ ****************************************************
+
+FINI
