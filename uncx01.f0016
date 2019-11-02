@@ -43,7 +43,6 @@ $$ ****************************************************
   SCNCNT = 0
   ATOCLP = 0                $$ AUTOMATIC UNCLAMP/CLAMP FLAG (DEFAULT = 0 (OFF))
 
-$$  C8MOD = 0                 $$ CYCLE800 MODE OFF BY DEFAULT
   C8MOD = 1                 $$ CYCLE800 MODE ON BY DEFAULT
   LC8MOD = 0
   LSPED = 999999
@@ -52,16 +51,11 @@ $$  C8MOD = 0                 $$ CYCLE800 MODE OFF BY DEFAULT
   FIXOF = 54
   HEDPLN = 17
   
-$$  CDHVAL = .0005                             $$ SET DEFAULT CHORD TOLERANCE VALUE
-$$  TCVAL = 11                                $$ SET DEFAULT TECHNOLOGY VALUE
-$$  ORVAL = .01                               $$ SET DEFAULT ORI TOLERANCE VALUE
   SPDFLG = 0
   HSMFLG = 0
   TCTXT = TEXT/''           $$ DEFAULT TOOL COMMENT VARIABLE TO ZERO CHARACTERS
   TRAVAL = TEXT/'200000'
   ROTVAL = TEXT/'1'
-$$  REPLAC/(TEXT/',0'),(TEXT/',.0')
-
 
   RESERV/TULTAB,100
   RESERV/TCTAB,100          $$ TOOL COMMENT ARRAY
@@ -344,10 +338,8 @@ CIMFIL/ON,LOADTL
        IF(CYCTYP .NE. (ICODEF(THREAD)) .AND. $
              CYCTYP .NE. (ICODEF(CIRCUL)) .AND. $
                 CYCTYP .NE. (ICODEF(ARCSLP)))THEN
-$$                INSERT/'TEST$'
                 DCYCL=0           $$CYCLE FLAG
                 ELSE
-$$                DCYCL=NTHN                 
        ENDIF
     ENDIF
     IF(MMOD .EQ. 1) DCYCL=1
@@ -360,7 +352,6 @@ $$ KEEP ABOVE CODE JUST INCASE
   IF(ADJF .GT. 0)OFS = POSTF(7,(ADJF+1))
   TCCNT = TCCNT+1
   TCFLG = 1
-$$  HSMFLG = 1
   TNNT = TEXT/CONVF,TNN,4,0,0,1,4
 
   IF(HEDFLG .EQ. 1)THEN
@@ -394,14 +385,9 @@ $$  HSMFLG = 1
      INSERT/'G_BACK_TUNNEL$'
      INSERT/'M692 ;EXAUST ON$'
      
-     
-  $$  INSERT/'M10 M20$'           $$ A AND B AXIS UNCLAMP
-$$  ELSE
-$$    INSERT/'CYCLE832(0,0,1)$'
   ENDIF
   INSERT/'M5$'
   INSERT/'M9$'
-$$  OPSTOP
   INSERT/'CYCLE800()$'
   
   $$Added below in case CLAMP/ON wasn't added after 5AX cuts
@@ -427,9 +413,7 @@ $$  OPSTOP
   INSERT/'M6$'
   OPSTOP
   INSERT/'; ',PPTXT,'$'
-$$  OPSTOP
   INSERT/'G700$'
-
   IF(SCNCNT .GT. 1)THEN
     IF(TCCNT .LT. SCNCNT)THEN
       INSERT/'T="',TULTAB(TCCNT+1),'"$'
@@ -442,7 +426,6 @@ $$  OPSTOP
   XX = POSTF(2,1,1867,1)
    XX = POSTF(21)
    XX = POSTF(13)
-$$   LOADTL/TNN
   XX = POSTF(2,1,1867,0)
 
   LSPED = 999999
@@ -459,9 +442,6 @@ $$ ****************************************************
 
 CIMFIL/ON,SELECT
   SEL4 = POSTF(7,4)
-$$  IF(GTCNT .EQ. 0)PREFUN/FIXOF
-$$  XX = POSTF(2,1,1918,2)
-$$  SELECF = 1
 CIMFIL/OFF
 
 
@@ -479,14 +459,7 @@ ORIVAL=POSTF(7,6)                             $$ GET ORI TOLERANCE VALUE
 CDVAL = TEXT/CONVF,CDHVAL,6,4,0,0,4
 
 CASE/TECVAL
-$$	WHEN/0
-$$      TCVAL = 0
-$$	WHEN/1
-$$      TCVAL = TEXT/OMIT'_FINISH'
-$$	WHEN/2
-$$		TCVAL = TEXT/OMIT'_SEMIFIN'
-$$	WHEN/3
-$$		TCVAL = TEXT/OMIT'_ROUGH'
+
 	WHEN/11
    	TCVAL = TEXT/'_ORI_FINISH'
 	WHEN/12
@@ -507,14 +480,6 @@ IF(TCFLG .EQ. 0)THEN
   INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
 ENDIF
 
-$$INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
-$$IF(HSMFLG .EQ. 1) THEN
-$$	IF(CDVAL .NE. PCDVAL) .OR. $
-$$			TECVAL .NE. PTCVAL) .OR. $
-$$				ORVAL .NE. PORVAL) THEN
-$$  INSERT/'CYCLE832(',OMIT,CDHVAL,',',OMIT,TCVAL,','OMIT,ORIVAL,')$'
-$$ENDIF
-$$HSMFLG=0
 CIMFIL/OFF
 
 
@@ -530,17 +495,10 @@ CIMFIL/ON,SPINDL
     ELSE
       INSERT/'CYCLE832(.0005,_ORI_FINISH,1)$'
     ENDIF
-$$    IF(HSMFLG .EQ. 0)THEN
-$$      INSERT/'CYCLE832(.0005,_ORI_FINISH,.01)$'
-$$    ENDIF            
+     
     XX = POSTF(21)
   ENDIF
  
-$$  IF(TCFLG .EQ. 1)THEN
-$$    INSERT/'CYCLE832(0.0005,_ORI_FINISH,0.01)$'
-$$    XX = POSTF(21)
-$$  ENDIF
-
   RPMF = POSTF(28,2,(ICODEF(RPM)))
   IF(RPMF .GT. 0)THEN
     SPED = POSTF(7,4)
@@ -552,11 +510,7 @@ $$  ENDIF
     XX = POSTF(13)
   ENDIF
   DCYCL=0  
-$$  SPDFLG=0
-$$  PCDVAL=CDVAL               $$ SAVE CHORD TOLERANCE VALUE
-$$  PTCVAL=TECVAL               $$ SAVE TECHNOLOGY VALUE
-$$  PORVAL=ORVAL               $$ SAVE ORI TOLERANCE VALUE
-$$HSMFLG=1
+
 CIMFIL/OFF
 
 $$ ****************************************************
@@ -592,11 +546,6 @@ CIMFIL/ON,CYCLE
     xx=postf(14)
     prefun/0,next
     
-    $$XX = POSTF(2,1,1867,1)
-    $$XX = POSTF(21)
-    $$XX = POSTF(13)
-    $$XX = POSTF(2,1,1867,0) 
-    
     JUMPTO/10
   ENDIF
   IF(CYCTYP .NE. (ICODEF(OFF)))THEN
@@ -617,7 +566,6 @@ CIMFIL/ON,CYCLE
     IF(CYCTYP .NE. (ICODEF(THREAD)) .AND. $
           CYCTYP .NE. (ICODEF(CIRCUL)) .AND. $
               CYCTYP .NE. (ICODEF(ARCSLP)))THEN
-$$      INSERT/'CYCLE832()$'
       REPLAC/(TEXT/'G0 F'),(TEXT/'F'),1,1
       XX = POSTF(21)
     ENDIF
@@ -647,13 +595,7 @@ CIMFIL/ON,GOTO                       $$ CATCH THE GOTO STATEMENT
   CLI = POSTF(7,9)
   CLJ = POSTF(7,10)
   CLK = POSTF(7,11)
-
     
-$$  IF(CLI .EQ. 0 .AND. CLJ .EQ. 0 .AND. CLK .EQ. 1)THEN
-$$    PLANC = 17
-$$  ELSE
-$$    PLANC = 19
-$$  ENDIF
 
   IF(C8MOD .EQ. 1)THEN
     CONTRL/TOLER,IF,.00001
@@ -682,7 +624,6 @@ $$  ENDIF
       SELECF = 0
       XX = POSTF(2,1,1918,0)
       PREFUN/FIXOF
-$$      INSERT/'G',OMIT,PLANC,'$'
       INSERT/'G17$'
       C8A = TEXT/CONVF,CURA,8,3,0,0,4
       C8B = TEXT/CONVF,CURB,8,3,0,0,4
@@ -695,15 +636,12 @@ $$      INSERT/'G',OMIT,PLANC,'$'
         	 ROTVAL = TEXT/'1'
       ENDIF
       
-$$INSERT/'CYCLE800(0,"TC_GROB",200000,54,0,0,0,C8A,C8B,0.,0,0.,0.,1,,0)$'
 		INSERT/'CYCLE800()$'
 
     $$INSERT/'M11 M21$'
     
-$$      INSERT/'CYCLE800(1,"TC_GROB",200000,\$'
       INSERT/'CYCLE800(0,"TC_GROB",',TRAVAL,',\$'
       SEQNO/OFF
-$$      INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,1,,0)$'
       INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,',ROTVAL,',,0)$'
       SEQNO/ON
 
@@ -713,13 +651,10 @@ $$      INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,1,,0)$'
       POSTN/OUT,D,1
       POSTN/OUT,G,RPG,X,CURX,Y,CURY,F,CURF
       POSTN/OUT,Z,CURZ
-$$      IF(HEDFLG=1) INSERT/'G',OMIT,PLANC,'$'
-$$      ENDIF
      INSERT/'G',OMIT,HEDPLN,'$'
       LCLI = CLI
       LCLJ = CLJ
       LCLK = CLK
-$$      LSTPC = PLANC
     ELSE
       XX = POSTF(21)
       XX = POSTF(13)                   $$ PROCESS AS NORMAL
@@ -749,7 +684,6 @@ $$      LSTPC = PLANC
       ELSE
         RPG = 1
       ENDIF
-$$      INSERT/'G',OMIT,PLANC,'$'
       INSERT/'G17$'
       IF(MMOD .EQ. 1)THEN
         C8A = TEXT/CONVF,CURA,8,3,0,0,4
@@ -767,10 +701,8 @@ $$      INSERT/'G',OMIT,PLANC,'$'
         $$    ROTVAL = TEXT/OMIT'1'
         
          
-$$        INSERT/'CYCLE800(1,"TC_GROB",200000,\$'
 		INSERT/'CYCLE800(0,"TC_GROB",',TRAVAL,',\$'
         SEQNO/OFF
-$$        INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,1,,0)$'
       INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,',ROTVAL,',,0)$'
         SEQNO/ON
         NUL = POSTF(2,1,1510,301)       $$ SET XYZ TRANSFORMS TO CL XYZIJK
@@ -785,7 +717,6 @@ $$        INSERT/'54,0,0,0,',C8B,',',C8A,',0,0,0,0,1,,0)$'
         PREFUN/FIXOF
         POSTN/OUT,D,1
       ENDIF
-$$      LSTPC = PLANC
     ELSE
       XX = POSTF(21)
       XX = POSTF(13)                   $$ PROCESS AS NORMAL
@@ -799,7 +730,6 @@ $$      LSTPC = PLANC
   IF(TCFLG .EQ. 1)TCFLG = 0
   IF(GTCNT .EQ. 1)GTCNT = 0
 
-$$  IF(HSMFLG .EQ. 1)HSMFLG = 0
 CIMFIL/OFF
 
 $$ ****************************************************
@@ -825,17 +755,7 @@ $$ ****************************************************
 $$ *          C L A M P     S E C T I O N             *
 $$ ****************************************************
 
-$$CIMFIL/ON,CLAMP                 $$ CATCH CLAMP STATEMENT
-$$  CLMPMD=POSTF(7,4)             $$ GET THE 4TH WORD
-$$  IF(CLMPMD .EQ. ICODEF(OFF))THEN      $$ IF CLAMP OFF
-$$    INSERT/'M11 M21$'           $$ FORCE A AND B AXIS UNCLAMP
-$$    ATOCLP=0                    $$ DISABLE FLAG
-    
-    
-$$  ELSE
-$$    ATOCLP=1                    $$ ENABLE FLAG
-$$  ENDIF
-$$CIMFIL/OFF
+
 
 CIMFIL/ON,CLAMP                 $$ CATCH CLAMP STATEMENT
   CLMPMD=POSTF(7,4)             $$ GET THE 4TH WORD
@@ -889,8 +809,6 @@ CIMFIL/ON,HOMEZ                   $$ CATCH HOMEZ STATEMENT
   PREFUN/FIXOF
   IF(MMOD .EQ. 1) INSERT/'TRAFOOF$'
   INSERT/'G_BACK_TUNNEL$'
-$$  INSERT/'G0 G90 SUPA D0 Z=Z_HOMEPOS M=QU(5) M=QU(9) M90$'
-$$ UPDATE THE PREVIOUS Z LOCATIONS TO TELL THE POST WE WENT UP IN Z
   XX = POSTF(2,3,381,30.123456)   $$ RESET Z LOCATIONS IN THE POST
   XX = POSTF(2,3,410,30.123456)
   XX = POSTF(2,3,416,30.123456)
@@ -1024,11 +942,6 @@ CIMFIL/ON,FINI
   INSERT/'M691 ;EXAUST OFF$'
   INSERT/'; G_TIMER(0)$'
   
-
-$$  INSERT/'G0 G90 SUPA D0 Z=Z_HOMEPOS M=QU(5) M=QU(9) M90$'
-$$  INSERT/'G0 G90 SUPA X=X_HOMEPOS Y=Y_HOMEPOS$'
-$$  INSERT/'G0 G90 SUPA A=A_HOMEPOS B=DC(B_HOMEPOS)$'
-
   INSERT/'M25$'
   INSERT/'M17$'
   INSERT/'M30$'
